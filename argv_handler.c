@@ -6,7 +6,7 @@
 /*   By: vneelix <vneelix@student.21-school.ru>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/03/15 00:19:44 by vneelix           #+#    #+#             */
-/*   Updated: 2022/04/03 19:17:04 by vneelix          ###   ########.fr       */
+/*   Updated: 2022/05/17 21:04:00 by vneelix          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,6 +51,7 @@ int	argv_handler(int argc, char *argv[], struct preset *preset) {
 					return (-1);
 				}
 				i++;
+				preset->flag.infinite_attempts = 0;
 				preset->attempts_count = ft_atoi(argv[i]);
 				break;
 			case 's':

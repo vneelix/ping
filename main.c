@@ -1,6 +1,6 @@
 #include "ping.h"
 
-#include <stdio.h>
+struct ping global_ping;
 
 int		dns_lookup(const char *address, int ai_family, struct addrinfo *ai) {
 	struct addrinfo hints;
@@ -16,7 +16,8 @@ int		dns_lookup(const char *address, int ai_family, struct addrinfo *ai) {
 }
 
 int		socket_create(int domain, uint8_t ttl_override, uint8_t ttl) {
-	int	sock = socket(domain, SOCK_RAW, (domain == AF_INET ? IPPROTO_ICMP : IPPROTO_ICMPV6));
+	int	sock = socket(domain, SOCK_RAW,
+						(domain == AF_INET ? IPPROTO_ICMP : IPPROTO_ICMPV6));
 	if (sock == -1)
 		return (-1);
 	int ret = 0;
@@ -66,121 +67,6 @@ struct msghdr	*create_msghdr(size_t buffer_len, size_t msg_controllen) {
 	return (msghdr);
 }
 
-/* int	ping(t_config *config) {
-	int sock;
-	void *icmphdr;
-	struct msghdr *msghdr;
-	if (init_ping(config, &sock, &icmphdr, &msghdr) == -1)
-		return (-1);
-
-	// get char representation of address
-	char ip_src[INET6_ADDRSTRLEN];
-	ft_memset((void*)ip_src, 0, sizeof(ip_src));
-	{
-		void *addr = NULL;
-		if (config->domain == AF_INET)
-			addr = &((struct sockaddr_in*)config->ai->ai_addr)->sin_addr;
-		else
-			addr = &((struct sockaddr_in6*)config->ai->ai_addr)->sin6_addr;
-		const char *ret = inet_ntop(config->domain, addr, ip_src, (socklen_t)sizeof(ip_src));
-	}
-
-	fprintf(stdout, "ft_ping (%s) %hu(%hu) bytes of data.\n",
-			ip_src, config->payload_size, (uint16_t)(config->payload_size + 28));
-
-	size_t msglen = sizeof(struct icmphdr) + config->payload_size;
-	const struct sockaddr *addr = config->ai->ai_addr;
-	socklen_t addrlen = config->ai->ai_addrlen;
-
-	struct timeval send_time, recieve_time;
-	config->attempts_count = 8;
-
-	for (uint64_t attempt = 0; attempt != config->attempts_count; attempt++) {
-		struct timeval time;
-		gettimeofday(&time, NULL);
-		long *timestamp = icmphdr + sizeof(struct icmphdr);
-		*timestamp = time.tv_sec;
-		struct icmphdr *p = icmphdr;
-		p->checksum = 0;
-		p->checksum = checksum_rfc1071(p, msglen);
-
-		gettimeofday(&send_time, NULL);
-		ssize_t	ret = sendto(sock, icmphdr, msglen, 0, addr, addrlen);
-		if (ret == -1) {
-				fprintf(stdout, "ft_ping: error: unable to send packet\n");
-				break;
-		}
-		ret = recvmsg(sock, msghdr, 0);
-		if (ret == -1)
-			continue;
-		gettimeofday(&recieve_time, NULL);
-		double diff = (recieve_time.tv_usec - send_time.tv_usec) / 1000.;
-		ret = icmp_reply_handler(msghdr, ret);
-	}
-} */
-
-/* int	init_ping(t_config *config, int *sock, void **icmphdr, struct msghdr **msghdr) {
-	int s = socket_create(config->domain, config->ttl_override, config->ttl);
-	if (s == -1) {
-		fprintf(stderr, "ft_ping: error: failed to create socket\n");
-		return (-1);
-	}
-	void *hdr = create_icmphdr_with_payload(ICMP_ECHO, (uint16_t)getpid(), config->payload_size);
-	if (hdr == NULL) {
-		fprintf(stderr, "ft_ping: error: failed to create ICMP header: size %hu\n", config->payload_size);
-		close(s);
-		return (-1);
-	}
-	struct msghdr *message_hdr = create_msghdr(512, 0);
-	if (msghdr == NULL) {
-		fprintf(stderr, "ft_ping: error: failed to prepare the environment: struct msghdr alloc\n");
-		free(hdr);
-		close(s);
-		return (-1);
-	}
-	*sock = s;
-	*icmphdr = hdr;
-	*msghdr = message_hdr;
-	return (0);
-} */
-
-/* int	profile_init(struct profile *profile, int *sock, void **icmphdr, struct msghdr **msghdr) {
-	// create socket for transmitting/receiving
-	int s = socket_create(profile->domain, profile->ttl_override, profile->ttl);
-	if (s == -1) {
-		fprintf(stderr, "ft_ping: error: failed to create socket\n");
-		return (-1);
-	}
-
-	// create data to sent
-	// void *hdr = create_icmphdr_with_payload(ICMP_ECHO, (uint16_t)getpid(), profile->payload_len);
-	void *hdr = NULL;
-	if (hdr == NULL) {
-		fprintf(stderr, "ft_ping: error: failed to create ICMP header\n");
-		close(s);
-		return (-1);
-	}
-
-	// create buffer for receiving
-	size_t size = 0;
-	if (profile->domain == AF_INET)
-		size = sizeof(struct ip) + sizeof(struct icmphdr) + profile->payload_len;
-	else
-		size = sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr) + profile->payload_len;
-	struct msghdr *message_hdr = create_msghdr(size, 0);
-	if (msghdr == NULL) {
-		fprintf(stderr, "ft_ping: error: failed to create msghdr\n");
-		free(hdr);
-		close(s);
-		return (-1);
-	}
-
-	*sock = s;
-	*icmphdr = hdr;
-	*msghdr = message_hdr;
-	return (0);
-} */
-
 int				release_profile(struct profile *profile) {
 	if (profile == NULL)
 		return (0);
@@ -200,17 +86,21 @@ struct profile	*create_profile(struct preset *preset) {
 		return (NULL);
 	ft_memset(profile, 0, sizeof(struct profile));
 
+	size_t msghdr_len = 0, reserve = 128;
 	if (preset->domain == AF_INET) {
 		profile->create_icmphdr = create_icmp4_hdr;
 		profile->increment_icmphdr = increment_icmp4_hdr;
 		profile->imcp_reply_handler = icmp4_reply_handler;
-		profile->packet_len = sizeof(struct icmphdr) + preset->payload_len;
+		profile->total_len = sizeof(struct icmphdr) + preset->payload_len;
+		msghdr_len = sizeof(struct icmp4) + preset->payload_len + reserve;
 	} else {
 		profile->create_icmphdr = create_icmp6_hdr;
 		profile->increment_icmphdr = increment_icmp6_hdr;
 		profile->imcp_reply_handler = icmp6_reply_handler;
-		profile->packet_len = sizeof(struct icmp6_hdr) + preset->payload_len;
+		msghdr_len = sizeof(struct icmp6) + preset->payload_len + reserve;
+		profile->total_len = sizeof(struct icmp6_hdr) + preset->payload_len;
 	}
+	msghdr_len += reserve - msghdr_len % reserve;
 
 	profile->sock = socket_create(preset->domain, preset->flag.ttl, preset->ttl);
 	if (profile->sock == -1)
@@ -220,43 +110,135 @@ struct profile	*create_profile(struct preset *preset) {
 	if (profile->packet == NULL)
 		return ((void*)(uint64_t)release_profile(profile));
 
-	profile->message = create_msghdr(256 + preset->payload_len, 256);
+	profile->message = create_msghdr(1024, 1024);
 	if (profile->message == NULL)
 		return ((void*)(uint64_t)release_profile(profile));
 
-	profile->packet_count = preset->attempts_count;
+	profile->domain = preset->domain;
+	profile->attempts_count = preset->attempts_count;
 	ft_memcpy(&profile->ai, &preset->ai, sizeof(struct addrinfo));
+	ft_memcpy(&profile->flag, &preset->flag, sizeof(preset->flag));
 	return (profile);
+}
+
+int	print_statistics(struct sockaddr_in *sa, struct statistics *statistics) {
+	char addr[INET6_ADDRSTRLEN];
+	inet_ntop(sa->sin_family, &sa->sin_addr, addr, INET6_ADDRSTRLEN);
+	const char *format_string =	"\n--- (%s) statistics---\n"
+								"%d packets transmitted, %d received, %.0f%% packet loss, time %.2fms\n"
+								"rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n";
+	fprintf(stdout, format_string, addr,
+		statistics->packets_transmitted, statistics->packets_received, statistics->packet_loss, statistics->time,
+			statistics->min, statistics->avg, statistics->max, statistics->mdev);
+	return (0);
+}
+
+ssize_t recieve_packet(struct profile *profile) {
+	ssize_t recieved_bytes = recvmsg(profile->sock, profile->message, MSG_WAITALL);
+	if (recieved_bytes == -1)
+		return (-1);
+	struct msghdr *message = profile->message;
+
+	if (message->msg_namelen == INET_ADDRSTRLEN) {
+		struct icmp4 *icmp4 = message->msg_iov->iov_base;
+		while (!(icmp4->icmphdr.un.echo.id == getpid() && icmp4->icmphdr.type != ICMP_ECHO))
+			recieved_bytes = recvmsg(profile->sock, profile->message, MSG_WAITALL);
+		return (recieved_bytes);
+	} else {
+		struct icmp6_hdr *icmp6_hdr = message->msg_iov->iov_base;
+		while (!(ntohs(icmp6_hdr->icmp6_id) == getpid() && icmp6_hdr->icmp6_type != ICMP6_ECHO_REQUEST))
+			recieved_bytes = recvmsg(profile->sock, profile->message, MSG_WAITALL);
+		return (recieved_bytes);
+	}
+}
+
+int	ping(struct profile *profile, struct statistics *statistics) {
+	char addr[INET6_ADDRSTRLEN];
+	struct sockaddr_in *sa = profile->ai.ai_addr;
+	inet_ntop(profile->domain, &sa->sin_addr, addr, INET6_ADDRSTRLEN);
+	uint16_t payload_size = profile->total_len - 8;
+	uint16_t summary_size = payload_size + (profile->domain == AF_INET ? sizeof(struct icmp4) : sizeof(struct icmp6_hdr));
+	fprintf(stdout, "PING (%s) %hu(%hu) bytes of data.\n", addr, payload_size, summary_size);
+
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	statistics->time = time.tv_sec * 1000. + time.tv_usec / 1000.;
+
+	uint64_t attempt = 0;
+	double sum = 0, sum2 = 0;
+	while (1)
+	{
+		ssize_t sended_bytes = sendto(
+			profile->sock, profile->packet, profile->total_len, 0, profile->ai.ai_addr, profile->ai.ai_addrlen);
+		if (sended_bytes == -1) {
+			attempt++;
+			continue;
+		}
+		statistics->packets_transmitted++;
+
+		ssize_t recieved_bytes = recieve_packet(profile);
+
+		if (recieved_bytes == -1) {
+			attempt++;
+			continue;
+		}
+		statistics->packets_received++;
+
+		double rtt = 0;
+		enum reply_type type = profile->imcp_reply_handler(profile->message, recieved_bytes, &rtt);
+		if (rtt <= statistics->min)
+			statistics->min = rtt;
+		if (rtt >= statistics->max)
+			statistics->max = rtt;
+		sum += rtt;
+        sum2 += rtt * rtt;
+		
+		attempt++;
+		if (!profile->flag.infinite_attempts
+				&& attempt >= profile->attempts_count)
+			break;
+		sleep(1);
+		profile->increment_icmphdr(profile->packet, profile->total_len);
+	}
+
+	gettimeofday(&time, NULL);
+	statistics->time = (time.tv_sec * 1000. + time.tv_usec / 1000.) - statistics->time;
+	statistics->avg = sum / statistics->packets_received;
+	sum /= statistics->packets_received;
+    sum2 /= statistics->packets_received;
+    statistics->mdev = sqrt(sum2 - sum * sum);
+	statistics->packet_loss = 1. -
+		(double)statistics->packets_transmitted / (double)statistics->packets_received;
+	return (0);
 }
 
 int	main(int argc, char *argv[]) {
 	struct preset preset;
 	ft_memset(&preset, 0, sizeof(preset));
+	preset.domain = AF_INET;
 	preset.payload_len = 56;
-	preset.attempts_count = ~((uint64_t)0);
+	preset.flag.infinite_attempts = 1;
 
 	if (argv_handler(argc, argv, &preset) == -1)
 		exit(EXIT_FAILURE);
 	struct profile *profile = create_profile(&preset);
-
-	while (1) {
-		ssize_t ret = sendto(profile->sock, profile->packet, profile->packet_len, 0, profile->ai.ai_addr, profile->ai.ai_addrlen);
-
-		ssize_t msglen = recvmsg(profile->sock, profile->message, MSG_WAITALL);
-		if (ret != -1)
-			ret = profile->imcp_reply_handler(profile->message, ret);
-
-		icmp4_reply_printer(profile->message, msglen);
-		exit(0);
-		// int ttl = 0;
-		// for (struct cmsghdr *cmsghdr = CMSG_FIRSTHDR(profile->message);
-		// 		cmsghdr != NULL; cmsghdr = CMSG_NXTHDR(profile->message, cmsghdr)) {
-		// 	if (cmsghdr->cmsg_level == IPPROTO_IPV6 && cmsghdr->cmsg_type == IPV6_HOPLIMIT)
-		// 		ttl = *(int*)CMSG_DATA(cmsghdr);
-		// }
-		sleep(1);
+	if (profile == NULL) {
+		fprintf(stderr, "FAILURE\n");
+		return (0);
 	}
+	global_ping = (struct ping) {
+		.profile = profile,
+		.statistics = (struct statistics){
+			.packets_transmitted = 0,
+			.packets_received = 0,
+			.packet_loss = 0,
+			.time = 0,
+			.min = __DBL_MAX__, .avg = 0, .max = 0., .mdev = 0
+		}
+	};
 
-	exit(EXIT_SUCCESS);
+	ping(profile, &global_ping.statistics);
+	print_statistics(profile->ai.ai_addr, &global_ping.statistics);
+	release_profile(profile);
 	return (0);
 }

@@ -1,6 +1,8 @@
 #ifndef	PING_H
 #define	PING_H
 
+#include <math.h>
+
 #include <sys/time.h>
 
 #include <stdlib.h>
@@ -8,6 +10,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+
+#include <poll.h>
 
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -22,11 +26,11 @@
 
 #include "minilib/minilib.h"
 
-typedef enum	e_icmp_request {
+enum reply_type {
 	UNEXPECTED_PACKET,
 	TIME_EXCEEDED,
 	ECHO_REPLY
-}				t_icmp_request;
+};
 
 struct preset {
 	struct	addrinfo	ai;
@@ -35,6 +39,7 @@ struct preset {
 
 	struct {
 		uint32_t		ttl: 1;
+		uint32_t		infinite_attempts: 1;
 	} flag;
 
 	uint8_t				ttl;
@@ -47,7 +52,6 @@ struct icmp4 {
 };
 
 struct icmp6 {
-	struct ip6_hdr		iphdr;
 	struct icmp6_hdr	icmphdr;
 };
 
@@ -57,21 +61,32 @@ struct profile {
 	struct msghdr		*message;
 
 	struct addrinfo		ai;
-	uint16_t			packet_len;
-	uint64_t			packet_count;
+	int					domain;
+	uint16_t			total_len;
 
-	// addresses ipv4 or ipv6 functions
+	struct {
+		uint32_t		ttl: 1;
+		uint32_t		infinite_attempts: 1;
+	} flag;
+	uint64_t			attempts_count;
+
 	void*	(*create_icmphdr)(uint16_t, uint16_t);
 	void*	(*increment_icmphdr)(void*, uint16_t);
-	int		(*imcp_reply_handler)(struct msghdr*, ssize_t);
+	int		(*imcp_reply_handler)(struct msghdr*, ssize_t, double*);
 };
 
-struct printable {
-	uint16_t		packet_len;
-	char			address[INET6_ADDRSTRLEN];
-	int				icmp_sequence;
-	int				ttl;
-	struct timeval	time;
+struct statistics {
+	int		packets_transmitted;
+	int		packets_received;
+	double	packet_loss;
+	double	time;
+	// rtt
+	double	min, avg, max, mdev;
+};
+
+struct ping {
+	struct profile *profile;
+	struct statistics statistics;
 };
 
 int	dns_lookup(const char *address, int ai_family, struct addrinfo *ai);
@@ -83,10 +98,12 @@ int	argv_handler(int argc, char *argv[], struct preset *preset);
 
 void	*create_icmp4_hdr(uint16_t id, uint16_t payload_len);
 void	*increment_icmp4_hdr(void *hdr, uint16_t payload_len);
-int		icmp4_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes);
-int		icmp4_reply_printer(struct msghdr *msghdr, ssize_t recieved_bytes);
+int		icmp4_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes, double *rtt);
 
 void	*create_icmp6_hdr(uint16_t id, uint16_t payload_len);
 void	*increment_icmp6_hdr(void *hdr, uint16_t payload_len);
-int		icmp6_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes);
+int		icmp6_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes, double *rtt);
+
+int		add_timestamp(void *icmphdr, size_t offset);
+int		extract_control_data(struct msghdr *msghdr, int level, int type, void **data);
 #endif
