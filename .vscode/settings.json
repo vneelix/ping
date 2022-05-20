@@ -1,0 +1,11 @@
+{
+	"C_Cpp.errorSquiggles": "Disabled",
+	"files.associations": {
+		"socket.h": "c",
+		"chrono": "c",
+		"random": "c",
+		"limits": "c",
+		"semaphore": "c",
+		"algorithm": "c"
+	}
+}

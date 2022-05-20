@@ -6,7 +6,7 @@
 /*   By: vneelix <vneelix@student.21-school.ru>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/05/19 20:51:26 by vneelix           #+#    #+#             */
-/*   Updated: 2022/05/19 21:00:04 by vneelix          ###   ########.fr       */
+/*   Updated: 2022/05/20 19:31:07 by vneelix          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,12 +28,12 @@ void	*create_icmp6_hdr(uint16_t id, uint16_t payload_len) {
 	return ((void*)icmp6_hdr);
 }
 
-void	*increment_icmp6_hdr(void *hdr, uint16_t payload_len) {
+void	*increment_icmp6_hdr(void *hdr, uint16_t total_len) {
 	struct icmp6_hdr *icmp6_hdr = (struct icmp6_hdr*)hdr;
 	icmp6_hdr->icmp6_seq = htons(ntohs(icmp6_hdr->icmp6_seq) + 1);
-	if (payload_len >= sizeof(struct timeval))
+	if (total_len - sizeof(struct icmp6_hdr) >= sizeof(struct timeval))
 		add_timestamp((void*)icmp6_hdr, sizeof(struct icmp6_hdr));
-	icmp6_hdr->icmp6_cksum = checksum_rfc1071(hdr, sizeof(struct icmp6_hdr) + payload_len);
+	icmp6_hdr->icmp6_cksum = checksum_rfc1071(hdr, total_len);
 	return (hdr);
 }
 

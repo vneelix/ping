@@ -2,16 +2,14 @@
 
 struct ping global_ping;
 
-int		dns_lookup(const char *address, int ai_family, struct addrinfo *ai) {
+int		dns_lookup(const char *address, int ai_family, struct addrinfo **ai) {
 	struct addrinfo hints;
 	ft_memset(&hints, 0, sizeof(hints));
 	hints.ai_family = ai_family;
 	struct addrinfo *node = NULL;
 	if (getaddrinfo(address, NULL, &hints, &node) != 0)
 		return (0);
-	ft_memcpy((void *)ai, (const void*)node, sizeof(struct addrinfo));
-	ai->ai_next = NULL;
-	freeaddrinfo(node);
+	*ai = node;
 	return (1);
 }
 
@@ -76,6 +74,8 @@ int				release_profile(struct profile *profile) {
 		free(profile->packet);
 	if (profile->message != NULL)
 		free(profile->message);
+	if (profile->ai != NULL)
+		freeaddrinfo(profile->ai);
 	free(profile);
 	return (0);
 }
@@ -114,9 +114,9 @@ struct profile	*create_profile(struct preset *preset) {
 	if (profile->message == NULL)
 		return ((void*)(uint64_t)release_profile(profile));
 
+	profile->ai = preset->ai;
 	profile->domain = preset->domain;
 	profile->attempts_count = preset->attempts_count;
-	ft_memcpy(&profile->ai, &preset->ai, sizeof(struct addrinfo));
 	ft_memcpy(&profile->flag, &preset->flag, sizeof(preset->flag));
 	return (profile);
 }
@@ -154,7 +154,7 @@ ssize_t recieve_packet(struct profile *profile) {
 
 int	ping(struct profile *profile, struct statistics *statistics) {
 	char addr[INET6_ADDRSTRLEN];
-	struct sockaddr_in *sa = profile->ai.ai_addr;
+	struct sockaddr_in *sa = profile->ai->ai_addr;
 	inet_ntop(profile->domain, &sa->sin_addr, addr, INET6_ADDRSTRLEN);
 	uint16_t payload_size = profile->total_len - 8;
 	uint16_t summary_size = payload_size + (profile->domain == AF_INET ? sizeof(struct icmp4) : sizeof(struct icmp6_hdr));
@@ -169,30 +169,30 @@ int	ping(struct profile *profile, struct statistics *statistics) {
 	while (1)
 	{
 		ssize_t sended_bytes = sendto(
-			profile->sock, profile->packet, profile->total_len, 0, profile->ai.ai_addr, profile->ai.ai_addrlen);
-		if (sended_bytes == -1) {
-			attempt++;
-			continue;
-		}
-		statistics->packets_transmitted++;
+			profile->sock, profile->packet, profile->total_len, 0, profile->ai->ai_addr, profile->ai->ai_addrlen);
+		if (sended_bytes == -1)
+			fprintf(stderr, "ft_ping: %zu: failed to send the packet\n", attempt);
+		else
+			statistics->packets_transmitted++;
 
-		ssize_t recieved_bytes = recieve_packet(profile);
-
-		if (recieved_bytes == -1) {
-			attempt++;
-			continue;
+		ssize_t recieved_bytes = -1;
+		if (sended_bytes != -1) {
+			recieved_bytes = recieve_packet(profile);
+			if (recieved_bytes != -1)
+				statistics->packets_received++;
 		}
-		statistics->packets_received++;
 
 		double rtt = 0;
-		enum reply_type type = profile->imcp_reply_handler(profile->message, recieved_bytes, &rtt);
+		enum reply_type type = UNEXPECTED_PACKET;
+		if (recieved_bytes != -1)
+			profile->imcp_reply_handler(profile->message, recieved_bytes, &rtt);
 		if (rtt <= statistics->min)
 			statistics->min = rtt;
 		if (rtt >= statistics->max)
 			statistics->max = rtt;
 		sum += rtt;
         sum2 += rtt * rtt;
-		
+
 		attempt++;
 		if (!profile->flag.infinite_attempts
 				&& attempt >= profile->attempts_count)
@@ -203,6 +203,8 @@ int	ping(struct profile *profile, struct statistics *statistics) {
 
 	gettimeofday(&time, NULL);
 	statistics->time = (time.tv_sec * 1000. + time.tv_usec / 1000.) - statistics->time;
+	if (statistics->packets_received == 0)
+		return (0);
 	statistics->avg = sum / statistics->packets_received;
 	sum /= statistics->packets_received;
     sum2 /= statistics->packets_received;
@@ -238,7 +240,7 @@ int	main(int argc, char *argv[]) {
 	};
 
 	ping(profile, &global_ping.statistics);
-	print_statistics(profile->ai.ai_addr, &global_ping.statistics);
+	print_statistics(profile->ai->ai_addr, &global_ping.statistics);
 	release_profile(profile);
 	return (0);
 }

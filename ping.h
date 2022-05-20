@@ -33,7 +33,7 @@ enum reply_type {
 };
 
 struct preset {
-	struct	addrinfo	ai;
+	struct	addrinfo	*ai;
 	int					domain;
 	uint16_t			payload_len;
 
@@ -60,7 +60,7 @@ struct profile {
 	void				*packet;
 	struct msghdr		*message;
 
-	struct addrinfo		ai;
+	struct addrinfo		*ai;
 	int					domain;
 	uint16_t			total_len;
 
@@ -89,7 +89,7 @@ struct ping {
 	struct statistics statistics;
 };
 
-int	dns_lookup(const char *address, int ai_family, struct addrinfo *ai);
+int		dns_lookup(const char *address, int ai_family, struct addrinfo **ai);
 
 uint16_t	checksum_rfc1071(void *data, int length);
 void		*create_icmphdr_with_payload(uint8_t type, uint16_t id, uint16_t plen);
