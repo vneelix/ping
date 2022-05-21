@@ -20,7 +20,8 @@ int	conclude_statistics(struct statistics *statistics) {
 int	print_statistics(struct sockaddr_in *sa, struct statistics *statistics) {
 	char addr[INET6_ADDRSTRLEN];
 	inet_ntop(sa->sin_family, &sa->sin_addr, addr, INET6_ADDRSTRLEN);
-	const char *format_string =	NULL;
+	const char *format_string =	"\n--- (%s) statistics---\n"
+								"%d packets transmitted, %d received, %.2f%% packet loss, time %.2fms\n\n";;
 	if (statistics->errors != 0)
 		format_string =	"\n--- (%s) statistics---\n"
 						"%d packets transmitted, %d received, +%d errors, %.2f%% packet loss, time %.2fms\n\n";

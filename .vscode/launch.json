@@ -9,7 +9,7 @@
 			"type": "cppdbg",
 			"request": "launch",
 			"program": "${workspaceFolder}/ping",
-			"args": ["-i", "0.56", "-t", "255", "chetelecom.ru"],
+			"args": ["ya.ru", "-c", "1"],
 			"stopAtEntry": false,
 			"cwd": "${fileDirname}",
 			"environment": [],
