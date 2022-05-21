@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include <sys/time.h>
+#include <signal.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -44,15 +45,12 @@ struct preset {
 
 	uint8_t				ttl;
 	uint64_t			attempts_count;
+	double				interval;
 };
 
 struct icmp4 {
 	struct ip			iphdr;
 	struct icmphdr		icmphdr;
-};
-
-struct icmp6 {
-	struct icmp6_hdr	icmphdr;
 };
 
 struct profile {
@@ -69,10 +67,11 @@ struct profile {
 		uint32_t		infinite_attempts: 1;
 	} flag;
 	uint64_t			attempts_count;
+	double				interval;
 
-	void*	(*create_icmphdr)(uint16_t, uint16_t);
-	void*	(*increment_icmphdr)(void*, uint16_t);
-	int		(*imcp_reply_handler)(struct msghdr*, ssize_t, double*);
+	void*				(*create_icmphdr)(uint16_t, uint16_t);
+	void*				(*increment_icmphdr)(void*, uint16_t);
+	int					(*imcp_reply_handler)(struct msghdr*, ssize_t, double*);
 };
 
 struct statistics {
@@ -80,8 +79,12 @@ struct statistics {
 	int		packets_received;
 	double	packet_loss;
 	double	time;
-	// rtt
+
 	double	min, avg, max, mdev;
+
+	double	sum, sum2;
+
+	int		errors;
 };
 
 struct ping {
@@ -89,21 +92,29 @@ struct ping {
 	struct statistics statistics;
 };
 
-int		dns_lookup(const char *address, int ai_family, struct addrinfo **ai);
+/* icmp4 */
+void			*create_icmp4_hdr(uint16_t id, uint16_t payload_len);
+void			*increment_icmp4_hdr(void *packet, uint16_t total_len);
+int				icmp4_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes, double *rtt);
 
-uint16_t	checksum_rfc1071(void *data, int length);
-void		*create_icmphdr_with_payload(uint8_t type, uint16_t id, uint16_t plen);
+/* icmp6 */
+void			*create_icmp6_hdr(uint16_t id, uint16_t payload_len);
+void			*increment_icmp6_hdr(void *hdr, uint16_t total_len);
+int				icmp6_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes, double *rtt);
 
-int	argv_handler(int argc, char *argv[], struct preset *preset);
+/* profile */
+struct profile	*create_profile(struct preset *preset);
+int				release_profile(struct profile *profile);
 
-void	*create_icmp4_hdr(uint16_t id, uint16_t payload_len);
-void	*increment_icmp4_hdr(void *hdr, uint16_t payload_len);
-int		icmp4_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes, double *rtt);
+/* utils */
+uint16_t		checksum_rfc1071(void *data, int length);
+int				add_timestamp(void *icmphdr, size_t offset);
+int				dns_lookup(const char *address, int ai_family,
+												struct addrinfo **ai);
+int				extract_control_data(struct msghdr *msghdr, int level,
+															int type, void **data);
+struct msghdr	*create_msghdr(size_t buffer_len, size_t msg_controllen);
+int				socket_create(int domain, uint8_t ttl_override, uint8_t ttl);
 
-void	*create_icmp6_hdr(uint16_t id, uint16_t payload_len);
-void	*increment_icmp6_hdr(void *hdr, uint16_t payload_len);
-int		icmp6_reply_handler(struct msghdr *msghdr, ssize_t recieved_bytes, double *rtt);
-
-int		add_timestamp(void *icmphdr, size_t offset);
-int		extract_control_data(struct msghdr *msghdr, int level, int type, void **data);
+int				argv_handler(int argc, char *argv[], struct preset *preset);
 #endif
