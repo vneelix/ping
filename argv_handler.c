@@ -6,11 +6,31 @@
 /*   By: vneelix <vneelix@student.21-school.ru>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/03/15 00:19:44 by vneelix           #+#    #+#             */
-/*   Updated: 2022/05/22 00:02:35 by vneelix          ###   ########.fr       */
+/*   Updated: 2022/05/22 01:15:23 by vneelix          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "ping.h"
+
+static int print_help() {
+	const char *help = 
+	"Usage\n"
+  	"  ft_ping [options] <destination>\n\n"
+	"Options:\n"
+  	"<destination>      dns name or ip address\n"
+  	"-c <count>         stop after <count> replies\n"
+  	"-h                 print help and exit\n"
+  	"-i <interval>      seconds between sending each packet\n"
+  	"-s <size>          use <size> as number of data bytes to be sent\n"
+  	"-t <ttl>           define time to live\n"
+  	"-v                 verbose output\n\n"
+	"IPv4 options:\n"
+  	"-4                 use IPv4\n\n"
+	"IPv6 options:\n"
+  	"-6                 use IPv6\n\n";
+	fprintf(stdout, "%s", help);
+	return (0);
+}
 
 static int invalid_value_callback(const char *arg, const char *value, int return_code) {
 	fprintf(stderr, "ft_ping: %s invalid value: %s\n", arg, value);
@@ -39,6 +59,8 @@ int	argv_handler(int argc, char *argv[], struct preset *preset) {
 
 		switch (argv[i][1]) {
 			case 'h':
+				print_help();
+				exit(EXIT_SUCCESS);
 				break;
 			case 'v':
 				break;
