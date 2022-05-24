@@ -94,7 +94,7 @@ int	argv_handler(int argc, char *argv[], struct preset *preset) {
 				if (i + 1 == argc || !is_number(argv[i + 1]))
 					return (invalid_value_callback(argv[i], i + 1 == argc ? "(null)" : argv[i + 1], -1));
 				int s = ft_atol(argv[i + 1]);
-				if (s < 0 || c > UINT16_MAX)
+				if (s < 0 || s > UINT16_MAX)
 					return (out_of_range_callback(argv[i], argv[i + 1], 0, 64000, -1));
 				i++;
 				preset->payload_len = s;
@@ -102,9 +102,10 @@ int	argv_handler(int argc, char *argv[], struct preset *preset) {
 			case 'i':
 				if (i + 1 == argc || !is_float(argv[i + 1]))
 					return (invalid_value_callback(argv[i], i + 1 == argc ? "(null)" : argv[i + 1], -1));
-				preset->interval = ft_atof(argv[i + 1]) * 1000000.;
-				if (s < 0 || c > INT64_MAX)
+				preset->interval = ft_atof(argv[i + 1]);
+				if ((long int)preset->interval < 0 || (long int)preset->interval > INT64_MAX)
 					return (out_of_range_callback(argv[i], argv[i + 1], 0, INT64_MAX, -1));
+				preset->interval *= 1000000.;
 				i++;
 				break;
 			default:
