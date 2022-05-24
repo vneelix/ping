@@ -25,7 +25,7 @@ int	print_statistics(struct sockaddr_in *sa, struct statistics *statistics) {
 	if (statistics->errors != 0)
 		format_string =	"\n--- (%s) statistics---\n"
 						"%d packets transmitted, %d received, +%d errors, %.2f%% packet loss, time %.2fms\n\n";
-	if (statistics->min != 0. && statistics->avg != 0. && statistics->max != 0. && statistics->mdev != 0.)
+	if (statistics->min != 0. && statistics->avg != 0. && statistics->max != 0.)
 		format_string =	"\n--- (%s) statistics---\n"
 						"%d packets transmitted, %d received, %.2f%% packet loss, time %.2fms\n"
 						"rtt min/avg/max/mdev = %.3f/%.3f/%.3f/%.3f ms\n";
